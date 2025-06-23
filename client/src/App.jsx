@@ -6,10 +6,7 @@ import {
   signOut as firebaseSignOut,
 } from './firebase';
 import { useNavigate } from 'react-router-dom';
-
 import { onAuthStateChanged } from 'firebase/auth';
-
-
 
 function App() {
   const [url, setUrl] = useState('');
@@ -20,28 +17,26 @@ function App() {
   const [ws, setWs] = useState(null);
   const navigate = useNavigate();
 
-  // Auto-check user auth
   useEffect(() => {
-  const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-    if (currentUser) {
-      setUser(currentUser);
-    } else {
-      navigate('/'); // redirect to login if not authenticated
-    }
-  });
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+      } else {
+        navigate('/');
+      }
+    });
 
-  return () => unsubscribe();
-}, []);
+    return () => unsubscribe();
+  }, []);
 
-  // Setup WebSocket
+  // ✅ Use deployed WebSocket
   useEffect(() => {
-    const socket = new WebSocket('ws://localhost:8080');
+    const socket = new WebSocket('wss://accessibility-backend-2frx.onrender.com');
     socket.onerror = () => setLog("⚠️ WebSocket connection failed.");
     setWs(socket);
     return () => socket.close();
   }, []);
 
-  // Voice Feedback
   const speak = (text) => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
@@ -53,7 +48,6 @@ function App() {
     }
   };
 
-  // Handle WebSocket response
   useEffect(() => {
     if (!ws) return;
     ws.onmessage = (event) => {
@@ -71,7 +65,6 @@ function App() {
     };
   }, [ws]);
 
-  // Run Accessibility Audit
   const handleAnalyze = () => {
     if (!url || !ws || ws.readyState !== 1 || !user) {
       speak('Audit failed. Please check the URL or login status.');
@@ -84,10 +77,9 @@ function App() {
     ws.send(JSON.stringify({ url, userId: user.uid }));
   };
 
-  // Fetch user-specific audit history
   const fetchHistory = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/user-reports', {
+      const res = await fetch('https://accessibility-backend-2frx.onrender.com/api/user-reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.uid }),
@@ -99,7 +91,6 @@ function App() {
     }
   };
 
-  // Download Report
   const downloadReport = () => {
     if (!report) return;
     const content = `Accessibility Report\n\nURL: ${url}\nScore: ${report.score}/100\n\nIssues:\n${
@@ -114,7 +105,6 @@ function App() {
     link.click();
   };
 
-  // Logout
   const logout = async () => {
     await firebaseSignOut(auth);
     setUser(null);
